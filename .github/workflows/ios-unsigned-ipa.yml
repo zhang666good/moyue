@@ -1,0 +1,146 @@
+# 墨阅 MoRead —— 云端构建 iOS 未签名 IPA
+#
+# 为什么是「未签名」：
+#   iOS 的代码签名必须有 Apple 开发者证书。免费 Apple ID 的证书拿不到
+#   CI 里去（要交互式登录），所以这里只出**未签名**的 .ipa，
+#   拿到 Windows 上由 Sideloadly 用你的免费 Apple ID 现场签名装机。
+#   整条链路零成本，代价是签名 7 天后过期，需要重新签一次。
+#
+# 想改成正式签名（TestFlight / 上架）时：
+#   ① 先加入 Apple Developer Program（$99/年）；
+#   ② 把 .p12 证书与描述文件 base64 后存进仓库 Secrets；
+#   ③ 用 apple-actions/import-codesign-certs 导入，
+#      再把 `--no-codesign` 去掉，并改用 `flutter build ipa --export-options-plist=...`。
+#
+# macOS runner 按 10 倍速率扣减免费额度，所以下面刻意做了三件事省时间：
+#   ① 文档改动不触发构建（paths-ignore）；
+#   ② 新推送取消上一次未完成的构建（concurrency）；
+#   ③ 缓存 Flutter SDK 与 CocoaPods（flutter-action 的 cache + Pods 缓存）。
+name: Build iOS (unsigned IPA)
+
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'assets/**'
+      - '.gitignore'
+  workflow_dispatch:
+    inputs:
+      build_mode:
+        description: 构建模式
+        required: true
+        default: release
+        type: choice
+        options: [release, profile, debug]
+
+concurrency:
+  group: ios-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: 构建未签名 IPA
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 查看构建环境
+        run: |
+          xcodebuild -version
+          echo "--- 可用的 Xcode ---"
+          ls /Applications | grep -i xcode || true
+          echo "--- CocoaPods ---"
+          pod --version || true
+
+      - name: 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: 解析依赖
+        run: flutter pub get
+
+      - name: 打印版本（便于排查环境差异）
+        run: flutter --version
+
+      - name: 静态分析
+        run: flutter analyze
+
+      # 只跑与平台无关的测试。
+      # visual_check.dart 依赖 C:\Windows\Fonts 下的字体且用了 golden 比对，
+      # 在 macOS runner 上必挂；icon_gen.dart / ico_verify.dart 是生成器，
+      # 产物已提交进仓库，不需要在 CI 里重算。
+      - name: 单元测试
+        run: |
+          flutter test \
+            test/widget_test.dart \
+            test/reading_test.dart \
+            test/render_test.dart
+
+      - name: 缓存 CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: pods-${{ runner.os }}-
+
+      - name: 构建 iOS（不做签名）
+        run: |
+          flutter build ios \
+            --${{ github.event.inputs.build_mode || 'release' }} \
+            --no-codesign
+
+      - name: 校验产物
+        run: |
+          set -euo pipefail
+          APP=build/ios/iphoneos/Runner.app
+          if [ ! -d "$APP" ]; then
+            echo "::error::没有找到 $APP，构建可能被静默跳过了"
+            ls -R build/ios || true
+            exit 1
+          fi
+          echo "Runner.app 大小：$(du -sh "$APP" | cut -f1)"
+          echo "可执行文件："
+          ls -la "$APP" | head -20
+
+      # .ipa 本质上就是一个 zip，里面是 Payload/Runner.app —— 没有别的玄机。
+      - name: 打包成 .ipa
+        run: |
+          set -euo pipefail
+          rm -rf build/ipa && mkdir -p build/ipa/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ipa/Payload/Runner.app
+          mkdir -p dist
+          ( cd build/ipa && zip -q -r -9 "$GITHUB_WORKSPACE/dist/moread-unsigned.ipa" Payload )
+          ls -la dist
+          echo "--- .ipa 内部结构 ---"
+          unzip -l dist/moread-unsigned.ipa | head -20
+
+      - name: 上传 IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: moread-unsigned-ipa
+          path: dist/*.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: 写构建摘要
+        if: always()
+        run: |
+          {
+            echo "### 构建结果"
+            echo ""
+            echo "- 模式：\`${{ github.event.inputs.build_mode || 'release' }}\`（未签名）"
+            echo "- 产物：\`moread-unsigned.ipa\`"
+            echo ""
+            echo "下载后在 Windows 上用 Sideloadly 配合免费 Apple ID 签名安装。"
+            echo "免费签名 **7 天后过期**，届时重新跑一次本工作流或用 Sideloadly 重签。"
+          } >> "$GITHUB_STEP_SUMMARY"

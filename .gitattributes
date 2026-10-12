@@ -1,0 +1,12 @@
+# 统一换行符：仓库里一律存 LF，工作区按平台给（Windows 拿 CRLF，macOS/Linux 拿 LF）。
+# 这样在 Windows 上编辑、在 macOS runner 上构建，不会因为 CRLF/LF 差异产生无意义的整文件 diff。
+* text=auto
+
+# 二进制文件一律不要做换行符转换，也别指望 diff 看得懂
+*.png binary
+*.ico binary
+*.rgba binary
+*.ttf binary
+*.otf binary
+*.jar binary
+*.xcodeproj/project.pbxproj -text

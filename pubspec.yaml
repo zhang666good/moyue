@@ -1,0 +1,28 @@
+name: moread
+description: "墨阅 MoRead —— 用 Flutter 原生实现的所见即所得 Markdown 编辑器与阅读器。"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  file_selector: ^1.0.3
+  # 语法高亮：纯 Dart 实现（highlight.js 的移植），190 种语言。
+  # 不用 flutter_highlight —— 那个 Flutter 侧封装给不了行号与指定行高亮，
+  # 而这两样正是语雀代码块的核心观感，所以自己画。
+  highlight: ^0.7.0
+  # 数学公式排版（KaTeX 思路的纯 Dart 实现），支持 onErrorFallback 降级。
+  flutter_math_fork: ^0.7.4
+  # 打开外链与相对路径图片时用系统默认程序。
+  url_launcher: ^6.3.0
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

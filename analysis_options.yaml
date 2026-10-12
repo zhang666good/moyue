@@ -1,0 +1,14 @@
+# 代码在分析器**默认**等级下已经是 0 error / 0 warning
+# （含 unused_import / unused_element / unused_local_variable / dead_code），
+# 所以这里不做任何严重级别降级 —— 保持默认，问题不会被藏起来。
+analyzer:
+  exclude:
+    - build/**
+    - windows/**
+    - ios/**
+linter:
+  rules:
+    - avoid_print
+    # 想要更严格的风格建议，可以解开下面这条再跑 flutter analyze：
+    # 它会提示哪些 widget 还能加 const（只影响性能，不影响正确性）。
+    # - prefer_const_constructors
