@@ -55,7 +55,7 @@ jobs:
 
     steps:
       - name: 拉取代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 查看构建环境
         run: |
@@ -131,8 +131,12 @@ jobs:
           echo "--- .ipa 内部结构 ---"
           unzip -l dist/moread-unsigned.ipa | head -20
 
+      # v7 起运行时升到 Node 24，v4 会被 GitHub 报 Node 20 弃用警告。
+      # 这里没有开 v7 新增的 archive: false（直传单文件、下载到的就是 .ipa），
+      # 因为它只保证支持「单个文件」这一种形态，用通配符路径不保险；
+      # 维持默认 zipping，下载下来是套了一层 zip 的 .ipa，解压一次即可。
       - name: 上传 IPA
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: moread-unsigned-ipa
           path: dist/*.ipa
