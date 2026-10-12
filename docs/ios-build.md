@@ -41,7 +41,7 @@ git push -u origin main
 ## 二、等构建跑完
 
 打开仓库的 **Actions** 标签页，点进最新一次 `Build iOS (unsigned IPA)`。
-整个过程大约 8～12 分钟，主要时间花在 CocoaPods 拉取和 Flutter 编译上。
+整个过程大约 8～12 分钟，主要时间花在拉取 Flutter SDK、解析 Swift Package 依赖和 Flutter 编译上。
 
 工作流里有两道关卡先跑：`flutter analyze` 和三个平台无关的测试文件。
 
@@ -119,13 +119,21 @@ Sideloadly 有 Windows 版，这是这条路能走通的关键。
 **构建在 `flutter analyze` 就红了**
 先在本机跑 `flutter analyze` 复现，改完再推。CI 上跑的和本机是同一套规则。
 
-**CocoaPods 报错 / 卡住**
-工作流已经缓存了 `ios/Pods`。真出错时先看日志里具体是哪个 pod；
-Flutter 的 iOS 插件（`file_selector_ios`、`url_launcher_ios`）都要求 iOS 13+，
-本工程部署目标是 15.0，不存在版本不够的问题。
+**报错 `The sandbox is not in sync with the Podfile.lock`**
+别照着提示去跑 `pod install`。真正原因是 **`ios/` 下多了一份 `Podfile`**。
+
+Flutter 3.4x 起 iOS 插件默认走 **Swift Package Manager**，本工程的
+`file_selector_ios`、`url_launcher_ios` 都是 Swift Package，**官方 ios 模板本身就不含 Podfile**。
+凭空加一份 Podfile 会开启 CocoaPods 集成，可实际上没有任何 pod 需要安装，
+`pod install` 往 `Runner.xcodeproj` 注入的 Pods 校验阶段就会失败。
+
+**解法：删掉 `ios/Podfile`**。工作流里已加了一道前置检查，它一旦被加回来就立刻报错提醒。
+
+**构建卡在依赖解析**
+同上，先确认没有 Podfile。走 SPM 解析插件依赖比 CocoaPods 快得多。
 
 **提示 `Runner.app` 找不到**
-说明 `flutter build ios` 没真正产出。日志里往上翻，通常是 CocoaPods 阶段先失败了。
+说明 `flutter build ios` 没真正产出。日志里往上翻，找第一条 `Error (Xcode)`。
 
 **macOS 额度用完了**
 把仓库改成公开，或等下个月额度重置。也可以在 Actions 页面

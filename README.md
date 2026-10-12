@@ -85,7 +85,7 @@ lib/
   read/      阅读态渲染：代码高亮、公式、表格、提示卡片、Mermaid、图片灯箱
   ui/        调色板、大纲面板、品牌标识（brand_mark.dart 是图标逻辑唯一来源）
   io/        文件读写（桌面／移动端差异都收在这里）
-ios/         iOS 工程（Podfile 已提交，部署目标 15.0，bundle id com.moread.moread）
+ios/         iOS 工程（部署目标 15.0，bundle id com.moread.moread，走 Swift Package Manager）
 windows/     Windows 工程
 test/
   widget_test / reading_test / render_test   三类测试（平台无关，CI 里跑这三个）

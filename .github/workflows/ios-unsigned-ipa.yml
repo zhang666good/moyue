@@ -12,10 +12,15 @@
 #   ③ 用 apple-actions/import-codesign-certs 导入，
 #      再把 `--no-codesign` 去掉，并改用 `flutter build ipa --export-options-plist=...`。
 #
-# macOS runner 按 10 倍速率扣减免费额度，所以下面刻意做了三件事省时间：
+# macOS runner 按 10 倍速率扣减免费额度，所以下面刻意做了两件事省时间：
 #   ① 文档改动不触发构建（paths-ignore）；
 #   ② 新推送取消上一次未完成的构建（concurrency）；
-#   ③ 缓存 Flutter SDK 与 CocoaPods（flutter-action 的 cache + Pods 缓存）。
+#   另加 flutter-action 自带的 Flutter SDK 缓存。
+#
+# 不要往 ios/ 里加 Podfile：Flutter 3.4x 起 iOS 插件默认走 Swift Package Manager，
+# 凭空多一份 Podfile 会开启 CocoaPods 集成，而因为实际没有任何 pod 要装，
+# 反而让 Xcode 报 "The sandbox is not in sync with the Podfile.lock"。
+# 官方 ios 模板本身就不含 Podfile，保持没有即可。
 name: Build iOS (unsigned IPA)
 
 on:
@@ -70,7 +75,16 @@ jobs:
         run: flutter pub get
 
       - name: 打印版本（便于排查环境差异）
-        run: flutter --version
+        run: |
+          flutter --version
+          echo "--- Swift Package Manager 开关 ---"
+          flutter config --list | grep -i swift || true
+          echo "--- ios/ 里不该有 Podfile ---"
+          if [ -f ios/Podfile ]; then
+            echo "::error::ios/Podfile 存在，会强制开启 CocoaPods 集成并导致构建失败，请删除它"
+            exit 1
+          fi
+          echo "确认无 Podfile，走 Swift Package Manager"
 
       - name: 静态分析
         run: flutter analyze
@@ -85,13 +99,6 @@ jobs:
             test/widget_test.dart \
             test/reading_test.dart \
             test/render_test.dart
-
-      - name: 缓存 CocoaPods
-        uses: actions/cache@v4
-        with:
-          path: ios/Pods
-          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
-          restore-keys: pods-${{ runner.os }}-
 
       - name: 构建 iOS（不做签名）
         run: |
