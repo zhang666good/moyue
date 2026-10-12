@@ -31,9 +31,36 @@ class OpenedFile {
 /// 说明：`extensions` 里**不要带前导点**（写 `md` 而不是 `.md`），
 /// 包内部会自己做 `_removeLeadingDots`，带了也能跑，但语义上不干净。
 class FileService {
-  static const XTypeGroup _markdownGroup = XTypeGroup(
+  /// 「打开 / 另存为」允许的文件类型。
+  ///
+  /// 这里**必须同时给 `uniformTypeIdentifiers`**，否则 iOS 上一点「打开」
+  /// 就抛：
+  ///
+  /// ```
+  /// Invalid argument(s): The provided type group Instance of 'XTypeGroup'
+  /// should either allow all files, or have a non-empty "uniformTypeIdentifiers"
+  /// ```
+  ///
+  /// 因为 `XTypeGroup` 的各字段是**按平台各取所需**的，不是互相兜底：
+  /// `file_selector_ios` 只看 UTI（源码里 `extensions` 连读都没读，
+  /// 直接 `ArgumentError`），`file_selector_windows` / `_linux` 只看
+  /// `extensions` / `mimeTypes`，`file_selector_macos` 两者都收。
+  /// 所以一份组里把三样都写全，各平台自己挑。
+  ///
+  /// UTI 挑这两个：
+  /// * `net.daringfireball.markdown` —— 系统为 `.md` / `.markdown` 声明的官方 UTI；
+  /// * `public.plain-text` —— 兜底。`.md` 本身 conform 它，所以即使某个
+  ///   `.md` 文件的 UTI 没被正确推断（网络盘、下载来的包等），也仍然可选。
+  ///
+  /// 注意 **不能只留 UTI 而删掉 `extensions`**：Windows / Linux 侧拿不到
+  /// 任何过滤条件，文件选择框就变成「所有文件」了。
+  static const XTypeGroup markdownTypeGroup = XTypeGroup(
     label: 'Markdown',
     extensions: <String>['md', 'markdown', 'mdown', 'txt'],
+    uniformTypeIdentifiers: <String>[
+      'net.daringfireball.markdown',
+      'public.plain-text',
+    ],
   );
 
   /// 当前平台是否有系统级的「另存为」对话框。
@@ -44,8 +71,9 @@ class FileService {
       Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   static Future<OpenedFile?> openMarkdown() async {
-    final XFile? file =
-        await openFile(acceptedTypeGroups: <XTypeGroup>[_markdownGroup]);
+    final XFile? file = await openFile(
+      acceptedTypeGroups: const <XTypeGroup>[markdownTypeGroup],
+    );
     if (file == null) return null;
     return readPath(file.path);
   }
@@ -78,7 +106,7 @@ class FileService {
 
     final FileSaveLocation? location = await getSaveLocation(
       suggestedName: name,
-      acceptedTypeGroups: <XTypeGroup>[_markdownGroup],
+      acceptedTypeGroups: const <XTypeGroup>[markdownTypeGroup],
     );
     if (location == null) return null;
     await File(location.path).writeAsString(content);

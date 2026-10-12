@@ -155,6 +155,34 @@ iOS 会缓存启动屏幕截图，而且缓存是按 App 粒度存的。**先把
 （浅色→白 / 深色→黑），与 App 自身的浅/深底色一致，正常情况下不会闪。
 如果仍然闪白，先按上一条删掉旧 App 重装。
 
+**点「打开」报 `should either allow all files, or have a non-empty "uniformTypeIdentifiers"`**
+`XTypeGroup` 里那几个字段是**按平台各取所需**的，不是互相兜底：
+
+| 平台 | 实际读哪个字段 |
+| :--- | :--- |
+| iOS | 只读 `uniformTypeIdentifiers`（`extensions` 连读都不读，为空的组直接 `ArgumentError`） |
+| macOS | `extensions` / `mimeTypes` / `uniformTypeIdentifiers` 都收 |
+| Windows / Linux | 只读 `extensions` / `mimeTypes` |
+
+所以一份组里要把 `extensions` 和 `uniformTypeIdentifiers` **都写上**，
+少了 UTI 就只有 iOS 会炸，而 iOS 恰恰是本机验证不了的那个平台。
+`FileService.markdownTypeGroup` 已按此配好，`test/file_service_test.dart`
+把这套判定抄成了回归测试，改动时会在 CI 上先红。
+
+**打开面板里 `.md` 文件是灰的、点不动**
+`net.daringfireball.markdown` 这个 UTI 直到 **iOS 27** 才被系统内置声明。
+在那之前，只要设备上没有任何 App 声明过它，`.md` 的扩展名就解析不出已知类型，
+选择器会把它当「不认识的文件」置灰。所以 `Info.plist` 里用
+`UTImportedTypeDeclarations` 自己声明了一份（`md`/`markdown`/`mdown`
+→ 该 UTI，conform `public.plain-text`）。这样任何 iOS 版本上
+都能正确解析，且不必等系统更新。
+
+**点「打开」选完文件后读不到内容**
+不会发生：`file_selector_ios` 用的是 `UIDocumentPickerViewController` 的
+`.import` 模式，iOS 会把文件**拷进 App 沙盒**再返回沙盒内的路径，
+所以不需要处理 security-scoped URL，拿到路径直接读即可
+（代价是编辑的是副本，不会回写原文件）。
+
 ## 九、推送前先自查
 
 iOS 适配改动集中在 `lib/io/file_service.dart`、`lib/ui/brand_mark.dart`、

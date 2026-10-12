@@ -93,12 +93,17 @@ jobs:
       # visual_check.dart 依赖 C:\Windows\Fonts 下的字体且用了 golden 比对，
       # 在 macOS runner 上必挂；icon_gen.dart / ico_verify.dart 是生成器，
       # 产物已提交进仓库，不需要在 CI 里重算。
+      #
+      # file_service_test 是**专门为了在 CI 上跑**才存在的：它断言打开文件的
+      # 类型组带 non-empty 的 uniformTypeIdentifiers —— 这条规则只有 iOS
+      # 侧会执行（本机跑不了 iOS），漏了又只会在手机上点「打开」时才炸。
       - name: 单元测试
         run: |
           flutter test \
             test/widget_test.dart \
             test/reading_test.dart \
-            test/render_test.dart
+            test/render_test.dart \
+            test/file_service_test.dart
 
       - name: 构建 iOS（不做签名）
         run: |

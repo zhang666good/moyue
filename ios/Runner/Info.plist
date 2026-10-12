@@ -33,6 +33,41 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<!-- 声明「本 App 能读 Markdown」。
+	     net.daringfireball.markdown 这个 UTI 直到 iOS 27 才被系统**内置**声明；
+	     在更早的系统上，如果设备里没有任何 App 声明过它，`.md` 文件的扩展名
+	     解析不出已知类型，打开面板里就会是灰的、点不动。
+	     UTImportedTypeDeclarations 专门用来声明「别人家的类型」：装上本 App 后
+	     系统即知道 .md → 该 UTI，而它 conform public.plain-text，
+	     正好对上 lib/io/file_service.dart 里打开文件用的类型组。 -->
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>net.daringfireball.markdown</string>
+			<key>UTTypeDescription</key>
+			<string>Markdown Document</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.plain-text</string>
+				<string>public.text</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>md</string>
+					<string>markdown</string>
+					<string>mdown</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>text/markdown</string>
+					<string>text/x-markdown</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
