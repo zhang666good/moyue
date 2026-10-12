@@ -100,6 +100,10 @@ Sideloadly 有 Windows 版，这是这条路能走通的关键。
 也就是说：**阅读体验是完整的，编辑交互是"能用但没为手机设计"**。
 真要当手机 App 用，还需要一轮触屏化改造（底部工具栏、手势、单栏导航）。
 
+视觉资产是离线派生的，不依赖 Xcode：主屏图标由 `tool/make_ios_icons.py`
+从 `assets/icon/icon_*.png` 生成，启动图由 `tool/make_ios_launch.py` 生成。
+换图标只改 `lib/ui/brand_mark.dart`，重渲染母版后跑这两个脚本即可。
+
 ## 七、升级到正式签名（可选）
 
 想摆脱 7 天限制，或者想装给别人测试，就得加入 Apple Developer Program（$99/年）：
@@ -142,10 +146,19 @@ Flutter 3.4x 起 iOS 插件默认走 **Swift Package Manager**，本工程的
 **装到手机上一点就闪退**
 九成是忘了信任开发者证书，回到第四步的第 5 条。
 
+**改了启动图，装上却没变化**
+iOS 会缓存启动屏幕截图，而且缓存是按 App 粒度存的。**先把旧 App 从手机
+上删掉**再装新包才看得到，覆盖安装通常无效。
+
+**启动页在深色模式下闪白**
+`LaunchScreen.storyboard` 的背景色用的是语义色 `systemBackgroundColor`
+（浅色→白 / 深色→黑），与 App 自身的浅/深底色一致，正常情况下不会闪。
+如果仍然闪白，先按上一条删掉旧 App 重装。
+
 ## 九、推送前先自查
 
 iOS 适配改动集中在 `lib/io/file_service.dart`、`lib/ui/brand_mark.dart`、
-`test/icon_gen.dart`、`ios/` 目录。推之前在本机确认一遍全绿：
+`test/icon_gen.dart`、`tool/make_ios_launch.py`、`ios/` 目录。推之前在本机确认一遍全绿：
 
 ```bash
 flutter pub get

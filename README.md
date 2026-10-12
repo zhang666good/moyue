@@ -57,11 +57,16 @@ iOS 图标必须**满幅且不带透明通道**，所以走的是 `paintBrandIco
 
 ```bash
 python tool/make_ios_icons.py        # 顺带用真实渲染像素反查背景公式，抄错会直接中止
+python tool/make_ios_launch.py       # 启动图：圆角方块居中，走 alpha 感知缩放
 ```
 
 小尺寸会自动降级：≤24px 只留纸张与墨滴；32–48px 两行文字；≥64px 三行文字加高光。
 iOS 各档尺寸按同一套档位取母版（20 用 minimal、29/40 用 compact、其余用 full），
 保证缩放不跨档串味。
+
+启动图与主屏图标走的是**两个相反的** alpha 策略：主屏图标必须满幅无透明
+（系统自己裁圆角，留给它反而露黑边），启动图必须保留圆角外的透明
+（否则浅色底上会多出一个硬边方块）。
 
 ## iOS 打包
 
@@ -93,6 +98,7 @@ test/
 tool/
   make_ico.py                                多尺寸 .ico 打包
   make_ios_icons.py                          从同一批 PNG 派生 iOS 满幅图标
+  make_ios_launch.py                         从同一批 PNG 派生 iOS 启动图
   package_win.py                             Windows 绿色版 zip 打包
 docs/
   ios-build.md                               iOS 云端打包与 Sideloadly 装机步骤
