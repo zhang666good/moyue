@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
@@ -79,10 +80,20 @@ void main() {
 
     test('去掉 UTF-8 BOM', () async {
       final f = File(p.join(tmp.path, 'bom.md'));
-      await f.writeAsBytes(<int>[0xEF, 0xBB, 0xBF, ...'正文'.codeUnits]);
+      // 必须写**真正的 UTF-8 字节**：'正文'.codeUnits 拿到的是 UTF-16 码元，
+      // 直接 writeAsBytes 出去会得到一个 UTF-8 解不出来的文件，
+      // readAsString 会抛 FileSystemException —— 这个测试自己先踩过一次。
+      await f.writeAsBytes(<int>[0xEF, 0xBB, 0xBF, ...utf8.encode('# 墨阅\n')]);
       final opened = await FileService.readPath(f.path);
       expect(opened.content.codeUnitAt(0), isNot(0xFEFF));
-      expect(opened.content.startsWith('正文'), isTrue);
+      expect(opened.content, '# 墨阅\n');
+    });
+
+    test('没有 BOM 的 UTF-8 中文不受影响', () async {
+      final f = File(p.join(tmp.path, 'cn.md'));
+      await f.writeAsBytes(utf8.encode('# 中文标题\n\n正文。\n'));
+      final opened = await FileService.readPath(f.path);
+      expect(opened.content, '# 中文标题\n\n正文。\n');
     });
 
     test('空文件也不炸', () async {
